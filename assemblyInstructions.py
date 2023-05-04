@@ -3,11 +3,16 @@ class instruction():
         self.number = number
         self.name = name
     def to_binary(self):
-        return "NULL"
+        self.binary = "NULL"
+    def get_binary(self):
+        return self.binary
     def set_tag(self, tag):
         self.tag = tag
     def calculate_offset(self, offsets):
-        self.offset = offsets[self.tag] - self.number
+        try:
+            self.offset = (offsets[self.tag] - self.number) - 2 #subtract 2 because always two ahead
+        except Exception:
+            pass
     def set_instruction_number(self, number):
         self.number = number
     def __str__(self) -> str:
@@ -26,7 +31,6 @@ class MOV(instruction):
             self.hardcode = self.movw_hardcode
         else:
             self.hardcode = self.movt_hardcode
-        self.to_binary()
     def to_binary(self):
         self.register = bin(int(self.register[1:]))[2:].zfill(4)
         self.operand = bin(int(self.operand, 16))[2:].zfill(16)
@@ -53,15 +57,11 @@ class STR(instruction):
         self.Rd = args[1] #flipped
         # if offset exists then self.offset = args[3] else self.offset = "000000000000"
         self.offset = args[3] if len(args) == 4 else "000000000000"
-        self.to_binary()
     def to_binary(self):
         self.Rn = bin(int(self.Rn[1:]))[2:].zfill(4)
         self.Rd = bin(int(self.Rd[1:]))[2:].zfill(4)
         self.offset = bin(int(self.offset, 16))[2:].zfill(12)
         self.binary = self.condition_code + self.hardcode + self.I + self.P + self.U + self.B + self.W + self.L + self.Rn + self.Rd + self.offset
-    def get_binary(self):
-        return self.binary
-
 
 #basically the same as STR except L = 1
 class LDR(instruction):
@@ -79,15 +79,11 @@ class LDR(instruction):
         self.Rd = args[1] #flipped
         # if offset exists then self.offset = args[3] else self.offset = "000000000000"
         self.offset = args[3] if len(args) == 4 else "000000000000"
-        self.to_binary()
     def to_binary(self):
         self.Rn = bin(int(self.Rn[1:]))[2:].zfill(4)
         self.Rd = bin(int(self.Rd[1:]))[2:].zfill(4)
         self.offset = bin(int(self.offset, 16))[2:].zfill(12)
         self.binary = self.condition_code + self.hardcode + self.I + self.P + self.U + self.B + self.W + self.L + self.Rn + self.Rd + self.offset
-    def get_binary(self):
-        return self.binary    
-
 
 class ADD(instruction):
     def __init__(self, *args):
@@ -100,15 +96,12 @@ class ADD(instruction):
         self.Rn = args[2]
         self.Rd = args[1]
         self.operand2 = args[3]
-        self.to_binary()
 
     def to_binary(self):
         self.Rn = bin(int(self.Rn[1:]))[2:].zfill(4)
         self.Rd = bin(int(self.Rd[1:]))[2:].zfill(4)
         self.operand2 = bin(int(self.operand2, 16))[2:].zfill(12)
         self.binary = self.condition_code + self.hardcode + self.I + self.op_code + self.S + self.Rn + self.Rd + self.operand2
-    def get_binary(self):
-        return self.binary
 class SUBS(instruction):
     def __init__(self, *args):
         super().__init__("SUBS")
@@ -120,14 +113,11 @@ class SUBS(instruction):
         self.Rn = args[2]
         self.Rd = args[1]
         self.operand2 = args[3]
-        self.to_binary()
     def to_binary(self):
         self.Rn = bin(int(self.Rn[1:]))[2:].zfill(4)
         self.Rd = bin(int(self.Rd[1:]))[2:].zfill(4)
         self.operand2 = bin(int(self.operand2, 16))[2:].zfill(12)
         self.binary = self.condition_code + self.hardcode + self.I + self.op_code + self.S + self.Rn + self.Rd + self.operand2
-    def get_binary(self):
-        return self.binary
 class ORR(instruction):
     def __init__(self, *args):
         super().__init__("ORR")
@@ -139,14 +129,11 @@ class ORR(instruction):
         self.Rn = args[1]
         self.Rd = args[2]
         self.operand2 = args[3]
-        self.to_binary()
     def to_binary(self):
         self.Rn = bin(int(self.Rn[1:]))[2:].zfill(4)
         self.Rd = bin(int(self.Rd[1:]))[2:].zfill(4)
         self.operand2 = bin(int(self.operand2, 16))[2:].zfill(12)
         self.binary = self.condition_code + self.hardcode + self.I + self.op_code + self.S + self.Rn + self.Rd + self.operand2
-    def get_binary(self):
-        return self.binary
         
 class B(instruction):
     def __init__(self, *args, condition_code = "1110", l = "0", name = "B"):
@@ -154,18 +141,26 @@ class B(instruction):
         self.condition_code = condition_code #default is always
         self.hardcode = "101"
         self.L = l
-        if ":" in args[1]:
+        if ":" in args[-1]:
             self.offset = "0"
+            self.tag = args[1][1:]
         else:
             self.offset = args[1]
-        self.to_binary()
+
     def to_binary(self):
         #bin(((1 << 32) - 1) & -5) covers both positive and negative offsets
         self.offset = bin(((1 << 24) - 1) & int(self.offset))[2:].zfill(24)
         self.binary = self.condition_code + self.hardcode + self.L + self.offset
-    def get_binary(self):
-        return self.binary
+
 class BX(instruction):
-    def __init__(self, name, number=0):
-        super().__init__(name, number)
+    def __init__(self, *args, condition_code = "1110"):
+        super().__init__(args[0])
+        self.condition_code = condition_code
+        self.hardcode = "000100101111111111110001"
+        self.register = args[1]
+
+    def to_binary(self):
+        self.register = bin(int(self.register[1:]))[2:].zfill(4)
+        self.binary = self.condition_code + self.hardcode + self.register
+    
     

@@ -50,6 +50,8 @@ def get_instruction_data(line, instruction_number):
         instruction = ins.B(*line, condition_code= "0101", name="BPL")
     elif line[0] == "BL":
         instruction = ins.B(*line, l = "1", name = "BL")
+    elif line[0] == "BX":
+        instruction = ins.BX(*line);
 
     if instruction == None:
         return None
@@ -77,15 +79,34 @@ with open("kernel7.img", "wb") as file:
 def main():
     #instructions in object form
     instructions = []
-    offsets = {}; #dictionary of labels and their offsets {"#START": 'instruction number', ":START": 'instruction number'}
+    offsets = {}
     
     for idx, line in enumerate(lines):
         if line == "" or line == "\n":
             continue
+
+        #finding out if the line contains a # tag
+        ins = split_instructions(line)
+        try:
+            tag = ins[-1]
+            if tag[0] == "#":
+                offsets[tag[1:]] = idx
+        except Exception:
+            pass
+
+        #converting instruction to object and adding it to list
         instructions.append(convert_line_to_object(line, idx))
     for instruction in instructions:
-        print(instruction)
-
+        instruction.calculate_offset(offsets)
+        instruction.to_binary()
+    write_to_img(instructions)
+        
+def write_to_img(instructions):
+    img_converter = converter.img_converter()
+    with open("kernel7.img", "wb") as file:
+        for instruction in instructions:
+            binary = instruction.get_binary()
+            file.write(img_converter.convert_to_bytes(binary))
 '''
 offsets = {"DELAY": 6} (tag: instruction number of tag with #)
 
